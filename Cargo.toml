@@ -1,0 +1,25 @@
+[workspace]
+resolver = "2"
+members = ["assets_example"]
+
+[package]
+name = "bevasset-io"
+version = "0.1.0-dev"
+edition = "2021"
+authors = ["Johnny T. Vestergaard <jtv@jrtv.dk>"]
+license = "Apache2.0/MIT"
+keywords = ["bevy", "assets"]
+readme = "README.md"
+description = "A Bevy plugin to embed assets in your game, or load assets from other sources!"
+repository = "https://github.com/taurr/bevasset-io"
+categories = ["game-development"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = "0.6"
+smol_str = "0.1"
+derive_more = "0.99"
+
+[features]
+build = []
