@@ -12,7 +12,7 @@ fn main() {
             // Include all assets, picked up from `build.rs`
             include_all_assets(io);
             // configure BevassetIo manually
-            io.add_handler(HandlerConfig::new("file", true, FileAssetIo))
+            io.add_handler(HandlerConfig::new("file", FileAssetIo).fallback_on_err())
                 .add_embedded_asset(Path::new("dummy"), include_bytes!("../assets/.keepme"));
         }))
     })

@@ -1,11 +1,15 @@
 # Bevasset-io
 
-TODO: fix Future issue in lib.rs
-TODO: allow to try normal file system first
+TODO: allow build.rs to only include expected files - and to actually FAIL if not found!
+
+TODO: use resource for configuring the BevassetIoPlugin
 
 TODO: add GH workflow for building & testing --workspace
+
 TODO: update README.md, badges etc.
+
 TODO: add note on usage of LFS and embedding resources via GH workflows
+
 TODO: release on crates.io
 
 [![Unlicense](https://img.shields.io/badge/license-Unlicense-blue)](https://unlicense.org)

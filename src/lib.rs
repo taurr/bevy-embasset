@@ -12,7 +12,6 @@
 )]
 
 mod plugin;
-use derive_more::DebugCustom;
 pub use plugin::BevassetIoPlugin;
 
 #[cfg(feature = "build")]
@@ -22,8 +21,9 @@ pub use build::generate_include_all_assets;
 
 use bevy::{
     asset::{AssetIo, AssetIoError, BoxedFuture},
-    prelude::debug,
+    prelude::*,
 };
+use derive_more::DebugCustom;
 use smol_str::SmolStr;
 use std::{
     collections::HashMap,
@@ -36,7 +36,7 @@ use std::{
 #[debug(fmt = "HandlerConfig {{ protocol = {} }}", protocol)]
 pub struct HandlerConfig {
     protocol: SmolStr,
-    fallthrough: bool,
+    fallback_on_err: bool,
     asset_io: Box<dyn AssetIo>,
 }
 
@@ -48,39 +48,57 @@ impl HandlerConfig {
     ///     The actual [`AssetIo`](bevy::asset::AssetIo) that handles a request is identified
     ///     through the first characters of its path.
     ///
-    /// - **fallthrough**
-    ///
-    ///     Whether `BevassetIo` should attempt to load the asset from it's embedded resources in case
-    /// of  an error from the handler.
-    ///
     /// - **asset_io**
     ///
-    ///     Handler for loading an asset using the specified `protocol`.
-    pub fn new<T: AssetIo>(protocol: &str, fallthrough: bool, asset_io: T) -> Self {
+    ///     Asset Server for loading any asset using a path starting with `protocol`.
+    pub fn new<T: AssetIo>(protocol: &str, asset_io: T) -> Self {
         HandlerConfig {
             protocol: SmolStr::new(protocol),
-            fallthrough,
+            fallback_on_err: false,
             asset_io: Box::new(asset_io),
         }
+    }
+
+    /// If loading an asset through this handler fails, fallback to the default - either file or
+    /// embedded resources, but withouth the `protocol` part of the path.
+    pub fn fallback_on_err(mut self) -> Self {
+        self.fallback_on_err = true;
+        self
     }
 }
 
 /// Custom [`AssetServer`](bevy::asset::AssetServer), that can load assets embedded into the binary,
 /// or use other servers for handling the load.
-#[derive(Debug)]
+#[derive(DebugCustom)]
+#[debug(fmt = "BevassetIo {{ handlers={:?} }}", handlers)]
 pub struct BevassetIo {
+    #[cfg(feature = "use-default-assetio")]
+    default_io: Box<dyn AssetIo>,
+
     handlers: Vec<HandlerConfig>,
     embedded_resources: HashMap<&'static Path, &'static [u8]>,
 }
 
+#[cfg(not(feature = "use-default-assetio"))]
 impl Default for BevassetIo {
     fn default() -> Self {
-        BevassetIo::new()
+        Self::new()
     }
 }
 
 impl BevassetIo {
     /// Create a new instance of the custom [`AssetServer`](bevy::asset::AssetServer).
+    #[cfg(feature = "use-default-assetio")]
+    pub fn new(default_io: Box<dyn AssetIo>) -> Self {
+        BevassetIo {
+            default_io,
+            handlers: Default::default(),
+            embedded_resources: Default::default(),
+        }
+    }
+
+    /// Create a new instance of the custom [`AssetServer`](bevy::asset::AssetServer).
+    #[cfg(not(feature = "use-default-assetio"))]
     pub fn new() -> Self {
         BevassetIo {
             handlers: Default::default(),
@@ -114,44 +132,235 @@ impl BevassetIo {
     }
 }
 
-impl AssetIo for BevassetIo {
-    fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
-        if let Some(_config) = self
-            .handlers
-            .iter()
-            .find(|h| path.starts_with(h.protocol.as_str()))
-        {
-            todo!();
-            // How do we remove protocol from the start of path, then return
-            // a) asset_io.load_path(new_path)
-            // or b) a new future that handles the error case of am by invoking this very method with the new_path
-        } else {
-            debug!(?path, "loaded as embedded resource");
-            Box::pin(async move {
-                self.embedded_resources
+async fn load_path_via_handler<'a>(
+    path: &'a Path,
+    config: &'a HandlerConfig,
+    bevasset: &'a BevassetIo,
+) -> Result<Vec<u8>, AssetIoError> {
+    // first remove the protocol part of the path
+    let path = path.display().to_string();
+    let path = path
+        .strip_prefix(config.protocol.as_str())
+        .expect("path does not start with the defined protocol");
+    let path = Path::new(path);
+
+    // now load using the handler
+    trace!(?path, protocol=?config.protocol, "load asset via handler");
+    let r = config.asset_io.load_path(Path::new(path)).await;
+
+    // fallback in case of errors
+    match r {
+        r @ Ok(_) => {
+            trace!(?path, "loaded");
+            r
+        }
+        Err(err) if config.fallback_on_err => {
+            info!(?err, ?path, protocol=?config.protocol, "failed loading asset using handler, fallback to default");
+            bevasset.load_path(path).await
+        }
+        Err(err) => {
+            warn!(?err, ?path, protocol=?config.protocol, "failed loading asset");
+            Err(err)
+        }
+    }
+}
+
+#[cfg(feature = "use-default-assetio")]
+async fn load_path<'a>(path: &'a Path, bevasset: &'a BevassetIo) -> Result<Vec<u8>, AssetIoError> {
+    if let Some(config) = bevasset
+        .handlers
+        .iter()
+        .find(|h| path.starts_with(h.protocol.as_str()))
+    {
+        load_path_via_handler(path, config, bevasset).await
+    } else {
+        trace!(?path, "load asset via default AssetIo");
+        match bevasset.default_io.load_path(path).await {
+            r @ Ok(_) => {
+                trace!(?path, "loaded");
+                r
+            }
+            Err(err) => {
+                info!(
+                    ?err,
+                    ?path,
+                    "failed loading asset using default AssetIo, fallback to embedded resource"
+                );
+                match bevasset
+                    .embedded_resources
                     .get(path)
                     .map(|b| b.to_vec())
                     .ok_or_else(|| bevy::asset::AssetIoError::NotFound(path.to_path_buf()))
-            })
+                {
+                    r @ Ok(_) => {
+                        trace!(?path, "loaded");
+                        r
+                    }
+                    Err(err) => {
+                        warn!(?err, ?path, "failed loading asset");
+                        Err(err)
+                    }
+                }
+            }
         }
+    }
+}
+
+#[cfg(not(feature = "use-default-assetio"))]
+async fn load_path<'a>(path: &'a Path, bevasset: &'a BevassetIo) -> Result<Vec<u8>, AssetIoError> {
+    if let Some(config) = bevasset
+        .handlers
+        .iter()
+        .find(|h| path.starts_with(h.protocol.as_str()))
+    {
+        load_path_via_handler(path, config, bevasset).await
+    } else {
+        trace!(?path, "load asset as embedded resource");
+        match bevasset
+            .embedded_resources
+            .get(path)
+            .map(|b| b.to_vec())
+            .ok_or_else(|| bevy::asset::AssetIoError::NotFound(path.to_path_buf()))
+        {
+            r @ Ok(_) => {
+                trace!(?path, "loaded");
+                r
+            }
+            Err(err) => {
+                warn!(?err, ?path, "failed loading asset");
+                Err(err)
+            }
+        }
+    }
+}
+
+fn read_embedded_directory(
+    bevasset: &BevassetIo,
+    path: &Path,
+) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
+    trace!(?path, "read directory as embedded resource");
+    if bevasset.is_directory(path) {
+        #[allow(clippy::needless_collect)]
+        let paths: Vec<_> = bevasset
+            .embedded_resources
+            .keys()
+            .filter(|loaded_path| loaded_path.starts_with(path))
+            .map(|t| t.to_path_buf())
+            .collect();
+        trace!(?path, "loaded");
+        Ok(Box::new(paths.into_iter()))
+    } else {
+        let err = AssetIoError::Io(std::io::ErrorKind::NotFound.into());
+        warn!(?err, ?path, "failed read directory");
+        Err(err)
+    }
+}
+
+#[cfg(feature = "use-default-assetio")]
+impl AssetIo for BevassetIo {
+    fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
+        Box::pin(load_path(path, self))
     }
 
     fn read_directory(
         &self,
         path: &Path,
     ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
-        // TODO: follow pattern from load_path
-        if self.is_directory(path) {
-            #[allow(clippy::needless_collect)]
-            let paths: Vec<_> = self
-                .embedded_resources
-                .keys()
-                .filter(|loaded_path| loaded_path.starts_with(path))
-                .map(|t| t.to_path_buf())
-                .collect();
-            Ok(Box::new(paths.into_iter()))
+        if let Some(config) = self
+            .handlers
+            .iter()
+            .find(|h| path.starts_with(h.protocol.as_str()))
+        {
+            // first remove the protocol part of the path
+            let path = path.display().to_string();
+            let path = path
+                .strip_prefix(config.protocol.as_str())
+                .expect("path does not start with the defined protocol");
+            let path = Path::new(path);
+            // pass call to handler
+            trace!(?path, protocol=?config.protocol, "read directory via handler");
+            config.asset_io.read_directory(path)
         } else {
-            Err(AssetIoError::Io(std::io::ErrorKind::NotFound.into()))
+            trace!(?path, "read directory via default AssetIo");
+            match self.default_io.read_directory(path) {
+                r @ Ok(_) => r,
+                Err(err) => {
+                    info!(
+                        ?err,
+                        ?path,
+                        "failed read directory via default AssetIo, fallback to embedded resource"
+                    );
+                    read_embedded_directory(self, path)
+                }
+            }
+        }
+    }
+
+    fn is_directory(&self, path: &Path) -> bool {
+        let is_directory = if let Some(config) = self
+            .handlers
+            .iter()
+            .find(|h| path.starts_with(h.protocol.as_str()))
+        {
+            config.asset_io.is_directory(path)
+        } else {
+            // here there's no chance of doing a fallback.
+            // if default_io is enabled, it effectively dictates the result when not using a
+            // matched protocol
+            self.default_io.is_directory(path)
+        };
+        is_directory
+    }
+
+    fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
+        if let Some(config) = self
+            .handlers
+            .iter()
+            .find(|h| path.starts_with(h.protocol.as_str()))
+        {
+            config.asset_io.watch_path_for_changes(path)
+        } else {
+            match self.default_io.watch_path_for_changes(path) {
+                r @ Ok(_) => r,
+                Err(_) => Ok(()),
+            }
+        }
+    }
+
+    fn watch_for_changes(&self) -> Result<(), AssetIoError> {
+        match self.default_io.watch_for_changes() {
+            r @ Ok(_) => r,
+            Err(_) => Ok(()),
+        }
+    }
+}
+
+#[cfg(not(feature = "use-default-assetio"))]
+impl AssetIo for BevassetIo {
+    fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
+        Box::pin(load_path(path, self))
+    }
+
+    fn read_directory(
+        &self,
+        path: &Path,
+    ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
+        if let Some(config) = self
+            .handlers
+            .iter()
+            .find(|h| path.starts_with(h.protocol.as_str()))
+        {
+            // first remove the protocol part of the path
+            let path = path.display().to_string();
+            let path = path
+                .strip_prefix(config.protocol.as_str())
+                .expect("path does not start with the defined protocol");
+            let path = Path::new(path);
+            // pass call to handler
+            trace!(?path, protocol=?config.protocol, "read directory via handler");
+            config.asset_io.read_directory(path)
+        } else {
+            read_embedded_directory(self, path)
         }
     }
 
@@ -168,7 +377,6 @@ impl AssetIo for BevassetIo {
                 .keys()
                 .any(|loaded_path| loaded_path.starts_with(&as_folder) && loaded_path != &path)
         };
-        debug!(?path, ?is_directory);
         is_directory
     }
 
@@ -178,21 +386,19 @@ impl AssetIo for BevassetIo {
             .iter()
             .find(|h| path.starts_with(h.protocol.as_str()))
         {
-            debug!(?config.protocol, ?path, "off-handling path watching");
             config.asset_io.watch_path_for_changes(path)
         } else {
-            debug!(?path, "not really watching!");
             Ok(())
         }
     }
 
     fn watch_for_changes(&self) -> Result<(), AssetIoError> {
-        debug!("not really watching!");
         Ok(())
     }
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "use-default-assetio"))]
 mod tests {
     use bevy::asset::AssetIo;
     use std::path::Path;
@@ -230,7 +436,7 @@ mod tests {
 
     #[test]
     fn is_directory() {
-        let mut embedded = BevassetIo::new();
+        let mut embedded = BevassetIo::new(None);
         embedded.add_embedded_asset(Path::new("asset.png"), &[]);
         embedded.add_embedded_asset(Path::new("directory/asset.png"), &[]);
 
@@ -243,7 +449,7 @@ mod tests {
 
     #[test]
     fn read_directory() {
-        let mut embedded = BevassetIo::new();
+        let mut embedded = BevassetIo::new(None);
         embedded.add_embedded_asset(Path::new("asset.png"), &[]);
         embedded.add_embedded_asset(Path::new("directory/asset.png"), &[]);
         embedded.add_embedded_asset(Path::new("directory/asset2.png"), &[]);

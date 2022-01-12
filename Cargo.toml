@@ -22,4 +22,5 @@ smol_str = "0.1"
 derive_more = "0.99"
 
 [features]
+use-default-assetio = []
 build = []

@@ -1,3 +1,5 @@
+#[cfg(feature = "use-default-assetio")]
+use bevy::asset::create_platform_default_asset_io;
 use bevy::{
     prelude::{App, AssetServer, Plugin},
     tasks::IoTaskPool,
@@ -64,16 +66,21 @@ where
     F: Fn(&mut BevassetIo) + Send + Sync + 'static,
 {
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "use-default-assetio")]
+        let mut bevasset_io = BevassetIo::new(create_platform_default_asset_io(app));
+
+        #[cfg(not(feature = "use-default-assetio"))]
+        let mut bevasset_io = BevassetIo::new();
+
+        let initializer = &self.initializer;
+        initializer(&mut bevasset_io);
+
         let task_pool = app
             .world
             .get_resource::<IoTaskPool>()
             .expect("`IoTaskPool` resource not found.")
             .0
             .clone();
-
-        let mut bevasset_io = BevassetIo::new();
-        let initializer = &self.initializer;
-        initializer(&mut bevasset_io);
 
         app.insert_resource(AssetServer::new(bevasset_io, task_pool));
     }
