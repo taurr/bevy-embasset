@@ -17,7 +17,7 @@ pub use plugin::BevassetIoPlugin;
 #[cfg(feature = "build")]
 mod build;
 #[cfg(feature = "build")]
-pub use build::generate_include_all_assets;
+pub use build::*;
 
 use bevy::{
     asset::{AssetIo, AssetIoError, BoxedFuture},
@@ -29,6 +29,25 @@ use std::{
     collections::HashMap,
     path::{Path, PathBuf},
 };
+
+/// Trait for easy replacement of the default [`AssetServer`](bevy::asset::AssetServer).
+pub trait BevassetPluginAdd {
+    /// Replace the default [`AssetServer`](bevy::asset::AssetServer).
+    fn add_bevasset_plugin<F>(&mut self, config_fn: F) -> &mut Self
+    where
+        F: Fn(&mut BevassetIo) + Send + Sync + 'static;
+}
+
+impl BevassetPluginAdd for App {
+    fn add_bevasset_plugin<F>(&mut self, config_fn: F) -> &mut Self
+    where
+        F: Fn(&mut BevassetIo) + Send + Sync + 'static,
+    {
+        self.add_plugins_with(DefaultPlugins, |group| {
+            group.add_before::<bevy::asset::AssetPlugin, _>(BevassetIoPlugin::new(config_fn))
+        })
+    }
+}
 
 /// Defines another [`AssetServer`](bevy::asset::AssetServer) that may be used for loading assets
 /// by prepending their path with a custom string.
@@ -436,7 +455,7 @@ mod tests {
 
     #[test]
     fn is_directory() {
-        let mut embedded = BevassetIo::new(None);
+        let mut embedded = BevassetIo::new();
         embedded.add_embedded_asset(Path::new("asset.png"), &[]);
         embedded.add_embedded_asset(Path::new("directory/asset.png"), &[]);
 
@@ -449,7 +468,7 @@ mod tests {
 
     #[test]
     fn read_directory() {
-        let mut embedded = BevassetIo::new(None);
+        let mut embedded = BevassetIo::new();
         embedded.add_embedded_asset(Path::new("asset.png"), &[]);
         embedded.add_embedded_asset(Path::new("directory/asset.png"), &[]);
         embedded.add_embedded_asset(Path::new("directory/asset2.png"), &[]);

@@ -5,19 +5,23 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Generated a function for including assets in [`BevassetIo`](bevasset_io::BevassetIo).
+/// Generate a function for including all assets in [`BevassetIo`](bevasset_io::BevassetIo).
+///
+/// Signature of the generated function:
 ///
 /// ```ignore
-/// fn include_all_assets(in_memory: &mut bevasset_io::BevassetIo) {
+/// fn add_embedded_assets(in_memory: &mut bevasset_io::BevassetIo) {
 ///     ...
 /// }
 /// ```
 ///
-pub fn generate_include_all_assets(asset_folder: &Path) {
-    let method_name = "include_all_assets";
+pub fn add_embedded_assets(asset_folder: &Path) {
+    let method_name = "add_embedded_assets";
     let mut output_file =
-        File::create(Path::new(&env::var_os("OUT_DIR").unwrap()).join("include_all_assets.rs"))
+        File::create(Path::new(&env::var_os("OUT_DIR").unwrap()).join("add_embedded_assets.rs"))
             .unwrap();
+
+    println!("cargo:rerun-if-changed={}", asset_folder.display());
 
     output_file
         .write_all(
@@ -43,7 +47,57 @@ pub fn generate_include_all_assets(asset_folder: &Path) {
             .unwrap();
         });
     output_file.write_all("}".as_ref()).unwrap();
+}
+
+/// Generate a function for including specific assets in [`BevassetIo`](bevasset_io::BevassetIo).
+///
+/// Signature of the generated function:
+///
+/// ```ignore
+/// fn add_embedded_assets(in_memory: &mut bevasset_io::BevassetIo) {
+///     ...
+/// }
+/// ```
+///
+pub fn include_assets(asset_folder: &Path, assets: &[&str]) -> Result<(), String> {
+    let method_name = "add_embedded_assets";
+    let mut output_file =
+        File::create(Path::new(&env::var_os("OUT_DIR").unwrap()).join("add_embedded_assets.rs"))
+            .unwrap();
+
     println!("cargo:rerun-if-changed={}", asset_folder.display());
+
+    output_file
+        .write_all(
+            format!(
+                "fn {}(#[allow(unused)] in_memory: &mut bevasset_io::BevassetIo){{\n",
+                method_name
+            )
+            .as_ref(),
+        )
+        .unwrap();
+
+    for asset in assets {
+        let path = asset_folder.join(asset);
+        if !path.exists() {
+            let err = format!("Asset not found: {}", path.display());
+            println!("cargo:warning={}", err);
+            return Err(err);
+        }
+        output_file.write_all(
+            format!(
+                "    in_memory.add_embedded_asset(std::path::Path::new({:?}), include_bytes!({:?}));",
+                asset,
+                path.to_string_lossy()
+            )
+            .as_ref(),
+        )
+        .unwrap();
+    }
+
+    output_file.write_all("}".as_ref()).unwrap();
+
+    Ok(())
 }
 
 fn visit_dirs(dir: &Path) -> Vec<PathBuf> {

@@ -1,9 +1,5 @@
 # Bevasset-io
 
-TODO: allow build.rs to only include expected files - and to actually FAIL if not found!
-
-TODO: use resource for configuring the BevassetIoPlugin
-
 TODO: add GH workflow for building & testing --workspace
 
 TODO: update README.md, badges etc.
@@ -23,16 +19,18 @@ Embed your asset folder inside your binary for easier releases.
 Work originally inspired by [bevy_embedded_assets](https://github.com/vleue/bevy_embedded_assets/tree/main/src)
 
 ```ignore
-use bevy::{prelude::*, asset::AssetPlugin};
-use bevasset_io::BevassetIoPlugin;
+use bevy::prelude::*;
+use bevasset_io::*;
 
 fn main() {
-    App::new().add_plugins_with(DefaultPlugins, |group| {
-        group.add_before::<AssetPlugin, _>(BevassetIoPlugin)
-    });
+    App::new()
+        .add_bevasset_plugin(add_embedded_assets)
+        ...
+        .run();
 }
 
-include!(concat!(env!("OUT_DIR"), "/include_all_assets.rs"));
+// Note: if configuring assets manually, there's no reason for this, nor the build script
+include!(concat!(env!("OUT_DIR"), "/add_embedded_assets.rs"));
 ```
 
 ## Bevy Compatibility
