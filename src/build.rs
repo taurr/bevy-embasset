@@ -5,20 +5,20 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Generate a function for including all assets in [`BevassetIo`](bevasset_io::BevassetIo).
+/// Generate a function for including all assets in [`EmbassetIo`](bevy_embasset::EmbassetIo).
 ///
 /// Signature of the generated function:
 ///
 /// ```ignore
-/// fn add_embedded_assets(in_memory: &mut bevasset_io::BevassetIo) {
+/// fn add_embasset_assets(in_memory: &mut bevy_embasset::EmbassetIo) {
 ///     ...
 /// }
 /// ```
 ///
-pub fn add_embedded_assets(asset_folder: &Path) {
-    let method_name = "add_embedded_assets";
+pub fn include_all_assets(asset_folder: &Path) {
+    let method_name = "add_embasset_assets";
     let mut output_file =
-        File::create(Path::new(&env::var_os("OUT_DIR").unwrap()).join("add_embedded_assets.rs"))
+        File::create(Path::new(&env::var_os("OUT_DIR").unwrap()).join("add_embasset_assets.rs"))
             .unwrap();
 
     println!("cargo:rerun-if-changed={}", asset_folder.display());
@@ -26,7 +26,7 @@ pub fn add_embedded_assets(asset_folder: &Path) {
     output_file
         .write_all(
             format!(
-                "fn {}(#[allow(unused)] in_memory: &mut bevasset_io::BevassetIo){{\n",
+                "fn {}(#[allow(unused)] in_memory: &mut bevy_embasset::EmbassetIo){{\n",
                 method_name
             )
             .as_ref(),
@@ -49,20 +49,20 @@ pub fn add_embedded_assets(asset_folder: &Path) {
     output_file.write_all("}".as_ref()).unwrap();
 }
 
-/// Generate a function for including specific assets in [`BevassetIo`](bevasset_io::BevassetIo).
+/// Generate a function for including specific assets in [`EmbassetIo`](bevy_embasset::EmbassetIo).
 ///
 /// Signature of the generated function:
 ///
 /// ```ignore
-/// fn add_embedded_assets(in_memory: &mut bevasset_io::BevassetIo) {
+/// fn add_embasset_assets(in_memory: &mut bevy_embasset::EmbassetIo) {
 ///     ...
 /// }
 /// ```
 ///
 pub fn include_assets(asset_folder: &Path, assets: &[&str]) -> Result<(), String> {
-    let method_name = "add_embedded_assets";
+    let method_name = "add_embasset_assets";
     let mut output_file =
-        File::create(Path::new(&env::var_os("OUT_DIR").unwrap()).join("add_embedded_assets.rs"))
+        File::create(Path::new(&env::var_os("OUT_DIR").unwrap()).join("add_embasset_assets.rs"))
             .unwrap();
 
     println!("cargo:rerun-if-changed={}", asset_folder.display());
@@ -70,7 +70,7 @@ pub fn include_assets(asset_folder: &Path, assets: &[&str]) -> Result<(), String
     output_file
         .write_all(
             format!(
-                "fn {}(#[allow(unused)] in_memory: &mut bevasset_io::BevassetIo){{\n",
+                "fn {}(#[allow(unused)] in_memory: &mut bevy_embasset::EmbassetIo){{\n",
                 method_name
             )
             .as_ref(),

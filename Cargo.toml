@@ -3,7 +3,7 @@ resolver = "2"
 members = ["assets_example"]
 
 [package]
-name = "bevasset-io"
+name = "bevy-embasset"
 version = "0.1.0-dev"
 edition = "2021"
 authors = ["Johnny T. Vestergaard <jtv@jrtv.dk>"]
@@ -11,7 +11,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy", "assets"]
 readme = "README.md"
 description = "A Bevy plugin to embed assets in your game, or load assets from other sources!"
-repository = "https://github.com/taurr/bevasset-io"
+repository = "https://github.com/taurr/bevy-embasset"
 categories = ["game-development"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ## [0.1.0] - date
-Initial release of `bevasset-io`
+Initial release of `bevy-embasset`
 
-[Unreleased]: https://github.com/taurr/bevasset-io/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/taurr/bevy-embasset/compare/0.1.0...HEAD
 [0.1.0]: https://github.com/taurr/bevexp/releases/tag/0.1.0

@@ -1,23 +1,23 @@
-use bevasset_io::*;
 use bevy::{asset::AssetIo, prelude::*};
+use bevy_embasset::*;
 use std::path::Path;
 
 fn main() {
     let mut app = App::new();
-    app.add_bevasset_plugin(add_embedded_assets).run();
+    app.add_embasset_plugin(add_embasset_assets).run();
 
-    app.add_bevasset_plugin(|io| {
+    app.add_embasset_plugin(|io| {
         // Include all assets, picked up from `build.rs`
-        add_embedded_assets(io);
+        add_embasset_assets(io);
 
-        // configure BevassetIo manually
-        io.add_handler(HandlerConfig::new("file", FileAssetIo).fallback_on_err());
+        // configure manually
+        io.add_handler(AssetIoConfig::new("file", FileAssetIo).fallback_on_err());
         io.add_embedded_asset(Path::new("dummy"), include_bytes!("../assets/.keepme"));
     })
     .run();
 }
 
-include!(concat!(env!("OUT_DIR"), "/add_embedded_assets.rs"));
+include!(concat!(env!("OUT_DIR"), "/add_embasset_assets.rs"));
 
 struct FileAssetIo;
 

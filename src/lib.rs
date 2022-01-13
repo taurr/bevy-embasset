@@ -12,7 +12,7 @@
 )]
 
 mod plugin;
-pub use plugin::BevassetIoPlugin;
+pub use plugin::EmbassetPlugin;
 
 #[cfg(feature = "build")]
 mod build;
@@ -31,20 +31,20 @@ use std::{
 };
 
 /// Trait for easy replacement of the default [`AssetServer`](bevy::asset::AssetServer).
-pub trait BevassetPluginAdd {
+pub trait AddEmbassetPlugin {
     /// Replace the default [`AssetServer`](bevy::asset::AssetServer).
-    fn add_bevasset_plugin<F>(&mut self, config_fn: F) -> &mut Self
+    fn add_embasset_plugin<F>(&mut self, config_fn: F) -> &mut Self
     where
-        F: Fn(&mut BevassetIo) + Send + Sync + 'static;
+        F: Fn(&mut EmbassetIo) + Send + Sync + 'static;
 }
 
-impl BevassetPluginAdd for App {
-    fn add_bevasset_plugin<F>(&mut self, config_fn: F) -> &mut Self
+impl AddEmbassetPlugin for App {
+    fn add_embasset_plugin<F>(&mut self, config_fn: F) -> &mut Self
     where
-        F: Fn(&mut BevassetIo) + Send + Sync + 'static,
+        F: Fn(&mut EmbassetIo) + Send + Sync + 'static,
     {
         self.add_plugins_with(DefaultPlugins, |group| {
-            group.add_before::<bevy::asset::AssetPlugin, _>(BevassetIoPlugin::new(config_fn))
+            group.add_before::<bevy::asset::AssetPlugin, _>(EmbassetPlugin::new(config_fn))
         })
     }
 }
@@ -52,15 +52,15 @@ impl BevassetPluginAdd for App {
 /// Defines another [`AssetServer`](bevy::asset::AssetServer) that may be used for loading assets
 /// by prepending their path with a custom string.
 #[derive(DebugCustom)]
-#[debug(fmt = "HandlerConfig {{ protocol = {} }}", protocol)]
-pub struct HandlerConfig {
+#[debug(fmt = "AssetIoConfig {{ protocol = {} }}", protocol)]
+pub struct AssetIoConfig {
     protocol: SmolStr,
     fallback_on_err: bool,
     asset_io: Box<dyn AssetIo>,
 }
 
-impl HandlerConfig {
-    /// Creates a new `HandlerConfig`.
+impl AssetIoConfig {
+    /// Creates a new `AssetIoConfig`.
     ///
     /// - **protocol**
     ///
@@ -71,7 +71,7 @@ impl HandlerConfig {
     ///
     ///     Asset Server for loading any asset using a path starting with `protocol`.
     pub fn new<T: AssetIo>(protocol: &str, asset_io: T) -> Self {
-        HandlerConfig {
+        AssetIoConfig {
             protocol: SmolStr::new(protocol),
             fallback_on_err: false,
             asset_io: Box::new(asset_io),
@@ -89,27 +89,27 @@ impl HandlerConfig {
 /// Custom [`AssetServer`](bevy::asset::AssetServer), that can load assets embedded into the binary,
 /// or use other servers for handling the load.
 #[derive(DebugCustom)]
-#[debug(fmt = "BevassetIo {{ handlers={:?} }}", handlers)]
-pub struct BevassetIo {
+#[debug(fmt = "EmbassetIo {{ handlers={:?} }}", handlers)]
+pub struct EmbassetIo {
     #[cfg(feature = "use-default-assetio")]
     default_io: Box<dyn AssetIo>,
 
-    handlers: Vec<HandlerConfig>,
+    handlers: Vec<AssetIoConfig>,
     embedded_resources: HashMap<&'static Path, &'static [u8]>,
 }
 
 #[cfg(not(feature = "use-default-assetio"))]
-impl Default for BevassetIo {
+impl Default for EmbassetIo {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl BevassetIo {
+impl EmbassetIo {
     /// Create a new instance of the custom [`AssetServer`](bevy::asset::AssetServer).
     #[cfg(feature = "use-default-assetio")]
     pub fn new(default_io: Box<dyn AssetIo>) -> Self {
-        BevassetIo {
+        EmbassetIo {
             default_io,
             handlers: Default::default(),
             embedded_resources: Default::default(),
@@ -119,14 +119,14 @@ impl BevassetIo {
     /// Create a new instance of the custom [`AssetServer`](bevy::asset::AssetServer).
     #[cfg(not(feature = "use-default-assetio"))]
     pub fn new() -> Self {
-        BevassetIo {
+        EmbassetIo {
             handlers: Default::default(),
             embedded_resources: Default::default(),
         }
     }
 
     /// Add a custom [`AssetServer`](bevy::asset::AssetServer) for handling specific paths.
-    pub fn add_handler(&mut self, handler: HandlerConfig) -> &mut Self {
+    pub fn add_handler(&mut self, handler: AssetIoConfig) -> &mut Self {
         self.handlers.push(handler);
         self
     }
@@ -151,10 +151,10 @@ impl BevassetIo {
     }
 }
 
-async fn load_path_via_handler<'a>(
+async fn load_path_via_assetio<'a>(
     path: &'a Path,
-    config: &'a HandlerConfig,
-    bevasset: &'a BevassetIo,
+    config: &'a AssetIoConfig,
+    bevasset: &'a EmbassetIo,
 ) -> Result<Vec<u8>, AssetIoError> {
     // first remove the protocol part of the path
     let path = path.display().to_string();
@@ -164,7 +164,7 @@ async fn load_path_via_handler<'a>(
     let path = Path::new(path);
 
     // now load using the handler
-    trace!(?path, protocol=?config.protocol, "load asset via handler");
+    trace!(?path, protocol=?config.protocol, "load asset via AssetIo");
     let r = config.asset_io.load_path(Path::new(path)).await;
 
     // fallback in case of errors
@@ -185,13 +185,13 @@ async fn load_path_via_handler<'a>(
 }
 
 #[cfg(feature = "use-default-assetio")]
-async fn load_path<'a>(path: &'a Path, bevasset: &'a BevassetIo) -> Result<Vec<u8>, AssetIoError> {
+async fn load_path<'a>(path: &'a Path, bevasset: &'a EmbassetIo) -> Result<Vec<u8>, AssetIoError> {
     if let Some(config) = bevasset
         .handlers
         .iter()
         .find(|h| path.starts_with(h.protocol.as_str()))
     {
-        load_path_via_handler(path, config, bevasset).await
+        load_path_via_assetio(path, config, bevasset).await
     } else {
         trace!(?path, "load asset via default AssetIo");
         match bevasset.default_io.load_path(path).await {
@@ -226,13 +226,13 @@ async fn load_path<'a>(path: &'a Path, bevasset: &'a BevassetIo) -> Result<Vec<u
 }
 
 #[cfg(not(feature = "use-default-assetio"))]
-async fn load_path<'a>(path: &'a Path, bevasset: &'a BevassetIo) -> Result<Vec<u8>, AssetIoError> {
+async fn load_path<'a>(path: &'a Path, bevasset: &'a EmbassetIo) -> Result<Vec<u8>, AssetIoError> {
     if let Some(config) = bevasset
         .handlers
         .iter()
         .find(|h| path.starts_with(h.protocol.as_str()))
     {
-        load_path_via_handler(path, config, bevasset).await
+        load_path_via_assetio(path, config, bevasset).await
     } else {
         trace!(?path, "load asset as embedded resource");
         match bevasset
@@ -254,7 +254,7 @@ async fn load_path<'a>(path: &'a Path, bevasset: &'a BevassetIo) -> Result<Vec<u
 }
 
 fn read_embedded_directory(
-    bevasset: &BevassetIo,
+    bevasset: &EmbassetIo,
     path: &Path,
 ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
     trace!(?path, "read directory as embedded resource");
@@ -276,7 +276,7 @@ fn read_embedded_directory(
 }
 
 #[cfg(feature = "use-default-assetio")]
-impl AssetIo for BevassetIo {
+impl AssetIo for EmbassetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(load_path(path, self))
     }
@@ -355,7 +355,7 @@ impl AssetIo for BevassetIo {
 }
 
 #[cfg(not(feature = "use-default-assetio"))]
-impl AssetIo for BevassetIo {
+impl AssetIo for EmbassetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(load_path(path, self))
     }
@@ -422,11 +422,11 @@ mod tests {
     use bevy::asset::AssetIo;
     use std::path::Path;
 
-    use super::BevassetIo;
+    use super::EmbassetIo;
 
     #[test]
     fn load_path() {
-        let mut embedded = BevassetIo::new();
+        let mut embedded = EmbassetIo::new();
         embedded.add_embedded_asset(Path::new("asset.png"), &[1, 2, 3]);
         embedded.add_embedded_asset(Path::new("other_asset.png"), &[4, 5, 6]);
 
@@ -455,7 +455,7 @@ mod tests {
 
     #[test]
     fn is_directory() {
-        let mut embedded = BevassetIo::new();
+        let mut embedded = EmbassetIo::new();
         embedded.add_embedded_asset(Path::new("asset.png"), &[]);
         embedded.add_embedded_asset(Path::new("directory/asset.png"), &[]);
 
@@ -468,7 +468,7 @@ mod tests {
 
     #[test]
     fn read_directory() {
-        let mut embedded = BevassetIo::new();
+        let mut embedded = EmbassetIo::new();
         embedded.add_embedded_asset(Path::new("asset.png"), &[]);
         embedded.add_embedded_asset(Path::new("directory/asset.png"), &[]);
         embedded.add_embedded_asset(Path::new("directory/asset2.png"), &[]);
