@@ -6,15 +6,16 @@
 
 Embed your asset folder inside your binary.
 
-[`EmbassetIo`](EmbassetIo) Adds support for loading assets embedded into the binary. Furthermore,
-it can optionally try to load assets via the default [`AssetPlugin`](bevy::asset::AssetPlugin)
+`bevy-embasset` adds support for loading assets embedded into the binary.
+
+Furthermore, it can optionally try to load assets via the default [`AssetPlugin`](bevy::asset::AssetPlugin)
 first, thereby allowing the embedded assets to be used as fallbacks in case of problems.
 
-As icing on the cake, [`EmbassetIo`](EmbassetIo) allows to register multiple other
+As icing on the cake, `bevy-embasset` allows to register multiple other
 [`AssetServer`](bevy::asset::AssetServer)'s, that will be used for asset paths beginning with
 specific configurable strings. This can be used to have some assets load from e.g. a web-service,
 while others are loaded from disk or embedded in the binary. It can also be used to e.g. build
-on or more sub-crates each using [`EmbassetIo`](EmbassetIo) and holding a set of assets - thereby
+1 or more sub-crates each using [`EmbassetIo`](EmbassetIo) and holding a set of assets - thereby
 saving compile-time as the assets don't have to be compiled every time.
 
 # Usage
