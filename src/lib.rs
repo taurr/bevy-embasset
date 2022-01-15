@@ -31,6 +31,25 @@ use std::{
 };
 
 /// Trait for easy replacement of the default [`AssetServer`](bevy::asset::AssetServer).
+///
+/// # Example
+/// ```rust
+/// # use bevy::{prelude::*, asset::AssetPlugin};
+/// # use bevy_embasset::AddEmbassetPlugin;
+/// # fn main() {
+///     App::new().add_embasset_plugin(add_embasset_assets);
+///
+///     // Add assets to Embasset manually
+///     // fn void add_embasset_assets(io: &mut EmbassetIo) {
+///     //   ...
+///     // }
+///
+///     // Or, use the buildscript, and just include the function
+///     // include!(concat!(env!("OUT_DIR"), "/add_embasset_assets.rs"));
+/// # }
+/// # fn add_embasset_assets(#[allow(unused)] in_memory: &mut bevy_embasset::EmbassetIo){
+/// # }
+/// ```
 pub trait AddEmbassetPlugin {
     /// Replace the default [`AssetServer`](bevy::asset::AssetServer).
     fn add_embasset_plugin<F>(&mut self, config_fn: F) -> &mut Self
@@ -50,36 +69,38 @@ impl AddEmbassetPlugin for App {
 }
 
 /// Defines another [`AssetServer`](bevy::asset::AssetServer) that may be used for loading assets
-/// by prepending their path with a custom string.
+/// by prepending the asset path with a custom string.
 #[derive(DebugCustom)]
-#[debug(fmt = "AssetIoConfig {{ protocol = {} }}", protocol)]
-pub struct AssetIoConfig {
-    protocol: SmolStr,
+#[debug(fmt = "AssetIoAlternative {{ path_start = {} }}", path_start)]
+pub struct AssetIoAlternative {
+    path_start: SmolStr,
     fallback_on_err: bool,
     asset_io: Box<dyn AssetIo>,
 }
 
-impl AssetIoConfig {
-    /// Creates a new `AssetIoConfig`.
+impl AssetIoAlternative {
+    /// Creates a new `AssetIoAlternative`.
     ///
-    /// - **protocol**
+    /// - **path_start**
     ///
-    ///     The actual [`AssetIo`](bevy::asset::AssetIo) that handles a request is identified
-    ///     through the first characters of its path.
+    ///     Any asset whose path is prepended with this will be handed of to the specified [`AssetIo`](bevy::asset::AssetIo).
     ///
     /// - **asset_io**
     ///
-    ///     Asset Server for loading any asset using a path starting with `protocol`.
-    pub fn new<T: AssetIo>(protocol: &str, asset_io: T) -> Self {
-        AssetIoConfig {
-            protocol: SmolStr::new(protocol),
+    ///     [`AssetServer`](bevy::asset::AssetServer) for loading assets.
+    pub fn new<T: AssetIo>(path_start: &str, asset_io: T) -> Self {
+        AssetIoAlternative {
+            path_start: SmolStr::new(path_start),
             fallback_on_err: false,
             asset_io: Box::new(asset_io),
         }
     }
 
-    /// If loading an asset through this handler fails, fallback to the default - either file or
-    /// embedded resources, but withouth the `protocol` part of the path.
+    /// If loading an asset with this alternate [`AssetIo`](bevy::asset::AssetIo) fails, fallback
+    /// to the default - either file or embedded resources, but withouth the `path_start` part of the path.
+    ///
+    /// If `bevy_embasset` is compiled with the `use-default-assetio` feature, fallback will attempt
+    /// to find a file first and if that fails too, try to use an embedded resource.
     pub fn fallback_on_err(mut self) -> Self {
         self.fallback_on_err = true;
         self
@@ -93,8 +114,7 @@ impl AssetIoConfig {
 pub struct EmbassetIo {
     #[cfg(feature = "use-default-assetio")]
     default_io: Box<dyn AssetIo>,
-
-    handlers: Vec<AssetIoConfig>,
+    handlers: Vec<AssetIoAlternative>,
     embedded_resources: HashMap<&'static Path, &'static [u8]>,
 }
 
@@ -107,8 +127,12 @@ impl Default for EmbassetIo {
 
 impl EmbassetIo {
     /// Create a new instance of the custom [`AssetServer`](bevy::asset::AssetServer).
+    ///
+    /// # Requires
+    ///
+    /// Feature: `use-default-assetio`
     #[cfg(feature = "use-default-assetio")]
-    pub fn new(default_io: Box<dyn AssetIo>) -> Self {
+    pub(crate) fn with_default_assetio(default_io: Box<dyn AssetIo>) -> Self {
         EmbassetIo {
             default_io,
             handlers: Default::default(),
@@ -118,7 +142,7 @@ impl EmbassetIo {
 
     /// Create a new instance of the custom [`AssetServer`](bevy::asset::AssetServer).
     #[cfg(not(feature = "use-default-assetio"))]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         EmbassetIo {
             handlers: Default::default(),
             embedded_resources: Default::default(),
@@ -126,7 +150,7 @@ impl EmbassetIo {
     }
 
     /// Add a custom [`AssetServer`](bevy::asset::AssetServer) for handling specific paths.
-    pub fn add_handler(&mut self, handler: AssetIoConfig) -> &mut Self {
+    pub fn add_handler(&mut self, handler: AssetIoAlternative) -> &mut Self {
         self.handlers.push(handler);
         self
     }
@@ -153,18 +177,18 @@ impl EmbassetIo {
 
 async fn load_path_via_assetio<'a>(
     path: &'a Path,
-    config: &'a AssetIoConfig,
+    config: &'a AssetIoAlternative,
     bevasset: &'a EmbassetIo,
 ) -> Result<Vec<u8>, AssetIoError> {
-    // first remove the protocol part of the path
+    // first remove the path_start part of the path
     let path = path.display().to_string();
     let path = path
-        .strip_prefix(config.protocol.as_str())
-        .expect("path does not start with the defined protocol");
+        .strip_prefix(config.path_start.as_str())
+        .expect("path does not start with the defined path_start");
     let path = Path::new(path);
 
     // now load using the handler
-    trace!(?path, protocol=?config.protocol, "load asset via AssetIo");
+    trace!(?path, path_start=?config.path_start, "load asset via AssetIo");
     let r = config.asset_io.load_path(Path::new(path)).await;
 
     // fallback in case of errors
@@ -174,11 +198,11 @@ async fn load_path_via_assetio<'a>(
             r
         }
         Err(err) if config.fallback_on_err => {
-            info!(?err, ?path, protocol=?config.protocol, "failed loading asset using handler, fallback to default");
+            info!(?err, ?path, path_start=?config.path_start, "failed loading asset using handler, fallback to default");
             bevasset.load_path(path).await
         }
         Err(err) => {
-            warn!(?err, ?path, protocol=?config.protocol, "failed loading asset");
+            warn!(?err, ?path, path_start=?config.path_start, "failed loading asset");
             Err(err)
         }
     }
@@ -189,7 +213,7 @@ async fn load_path<'a>(path: &'a Path, bevasset: &'a EmbassetIo) -> Result<Vec<u
     if let Some(config) = bevasset
         .handlers
         .iter()
-        .find(|h| path.starts_with(h.protocol.as_str()))
+        .find(|h| path.starts_with(h.path_start.as_str()))
     {
         load_path_via_assetio(path, config, bevasset).await
     } else {
@@ -230,7 +254,7 @@ async fn load_path<'a>(path: &'a Path, bevasset: &'a EmbassetIo) -> Result<Vec<u
     if let Some(config) = bevasset
         .handlers
         .iter()
-        .find(|h| path.starts_with(h.protocol.as_str()))
+        .find(|h| path.starts_with(h.path_start.as_str()))
     {
         load_path_via_assetio(path, config, bevasset).await
     } else {
@@ -288,16 +312,16 @@ impl AssetIo for EmbassetIo {
         if let Some(config) = self
             .handlers
             .iter()
-            .find(|h| path.starts_with(h.protocol.as_str()))
+            .find(|h| path.starts_with(h.path_start.as_str()))
         {
-            // first remove the protocol part of the path
+            // first remove the path_start part of the path
             let path = path.display().to_string();
             let path = path
-                .strip_prefix(config.protocol.as_str())
-                .expect("path does not start with the defined protocol");
+                .strip_prefix(config.path_start.as_str())
+                .expect("path does not start with the defined path_start");
             let path = Path::new(path);
             // pass call to handler
-            trace!(?path, protocol=?config.protocol, "read directory via handler");
+            trace!(?path, path_start=?config.path_start, "read directory via handler");
             config.asset_io.read_directory(path)
         } else {
             trace!(?path, "read directory via default AssetIo");
@@ -319,13 +343,13 @@ impl AssetIo for EmbassetIo {
         let is_directory = if let Some(config) = self
             .handlers
             .iter()
-            .find(|h| path.starts_with(h.protocol.as_str()))
+            .find(|h| path.starts_with(h.path_start.as_str()))
         {
             config.asset_io.is_directory(path)
         } else {
             // here there's no chance of doing a fallback.
             // if default_io is enabled, it effectively dictates the result when not using a
-            // matched protocol
+            // matched path_start
             self.default_io.is_directory(path)
         };
         is_directory
@@ -335,7 +359,7 @@ impl AssetIo for EmbassetIo {
         if let Some(config) = self
             .handlers
             .iter()
-            .find(|h| path.starts_with(h.protocol.as_str()))
+            .find(|h| path.starts_with(h.path_start.as_str()))
         {
             config.asset_io.watch_path_for_changes(path)
         } else {
@@ -367,16 +391,16 @@ impl AssetIo for EmbassetIo {
         if let Some(config) = self
             .handlers
             .iter()
-            .find(|h| path.starts_with(h.protocol.as_str()))
+            .find(|h| path.starts_with(h.path_start.as_str()))
         {
-            // first remove the protocol part of the path
+            // first remove the path_start part of the path
             let path = path.display().to_string();
             let path = path
-                .strip_prefix(config.protocol.as_str())
-                .expect("path does not start with the defined protocol");
+                .strip_prefix(config.path_start.as_str())
+                .expect("path does not start with the defined path_start");
             let path = Path::new(path);
             // pass call to handler
-            trace!(?path, protocol=?config.protocol, "read directory via handler");
+            trace!(?path, path_start=?config.path_start, "read directory via handler");
             config.asset_io.read_directory(path)
         } else {
             read_embedded_directory(self, path)
@@ -387,7 +411,7 @@ impl AssetIo for EmbassetIo {
         let is_directory = if let Some(config) = self
             .handlers
             .iter()
-            .find(|h| path.starts_with(h.protocol.as_str()))
+            .find(|h| path.starts_with(h.path_start.as_str()))
         {
             config.asset_io.is_directory(path)
         } else {
@@ -403,7 +427,7 @@ impl AssetIo for EmbassetIo {
         if let Some(config) = self
             .handlers
             .iter()
-            .find(|h| path.starts_with(h.protocol.as_str()))
+            .find(|h| path.starts_with(h.path_start.as_str()))
         {
             config.asset_io.watch_path_for_changes(path)
         } else {

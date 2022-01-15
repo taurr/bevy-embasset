@@ -5,15 +5,21 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Generate a function for including all assets in [`EmbassetIo`](bevy_embasset::EmbassetIo).
+/// Generate a function for including *all* assets from a folder in [`EmbassetIo`](crate::EmbassetIo).
+///
+/// For use from a build script (`build.rs`).
 ///
 /// Signature of the generated function:
 ///
 /// ```ignore
-/// fn add_embasset_assets(in_memory: &mut bevy_embasset::EmbassetIo) {
+/// fn add_embasset_assets(_: &mut bevy_embasset::EmbassetIo) {
 ///     ...
 /// }
 /// ```
+///
+/// # Requires
+///
+/// Feature: `build`
 ///
 pub fn include_all_assets(asset_folder: &Path) {
     let method_name = "add_embasset_assets";
@@ -49,15 +55,21 @@ pub fn include_all_assets(asset_folder: &Path) {
     output_file.write_all("}".as_ref()).unwrap();
 }
 
-/// Generate a function for including specific assets in [`EmbassetIo`](bevy_embasset::EmbassetIo).
+/// Generate a function for including specific assets in [`EmbassetIo`](crate::EmbassetIo).
+///
+/// For use from a build script (`build.rs`).
 ///
 /// Signature of the generated function:
 ///
 /// ```ignore
-/// fn add_embasset_assets(in_memory: &mut bevy_embasset::EmbassetIo) {
+/// fn add_embasset_assets(_: &mut bevy_embasset::EmbassetIo) {
 ///     ...
 /// }
 /// ```
+///
+/// # Requires
+///
+/// Feature: `build`
 ///
 pub fn include_assets(asset_folder: &Path, assets: &[&str]) -> Result<(), String> {
     let method_name = "add_embasset_assets";
@@ -122,15 +134,15 @@ mod test {
 
     #[test]
     fn visit_src_dirs() {
-        let result = visit_dirs(Path::new("./example"));
+        let result = visit_dirs(Path::new("./assets_example"));
         assert!(result
             .iter()
-            .any(|p| p.display().to_string() == *"./example/build.rs"));
+            .any(|p| p.display().to_string() == *"./assets_example/build.rs"));
         assert!(result
             .iter()
-            .any(|p| p.display().to_string() == *"./example/src/main.rs"));
+            .any(|p| p.display().to_string() == *"./assets_example/src/main.rs"));
         assert!(result
             .iter()
-            .any(|p| p.display().to_string() == *"./example/assets/.keepme"));
+            .any(|p| p.display().to_string() == *"./assets_example/assets/.keepme"));
     }
 }
