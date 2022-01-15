@@ -8,14 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-
 ### Changed
-- Removed dev-dependency on `bevy`
-
 ### Removed
 
-## [0.1.0] - date
+## [0.1.1] - 2022-01-15
+Bugfixes/changes found in usage
+- Removed dev-dependency on `bevy`
+- Embasset::new is new public.
+    
+    Enables the possibility to create Asset crates seperately from the game.
+    
+    Example can be found in the game [Bevoids](https://github.com/taurr/bevoids)
+
+## [0.1.0] - 2022-01-15
 Initial release of `bevy-embasset`
 
-[Unreleased]: https://github.com/taurr/bevy-embasset/compare/0.1.0...HEAD
-[0.1.0]: https://github.com/taurr/bevexp/releases/tag/0.1.0
+[Unreleased]: https://github.com/taurr/bevy-embasset/compare/0.1.1...HEAD
+[0.1.1]: https://github.com/taurr/bevy-embasset/releases/tag/0.1.1
+[0.1.0]: https://github.com/taurr/bevy-embasset/releases/tag/0.1.0
