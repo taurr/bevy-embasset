@@ -14,7 +14,9 @@ keywords = ["bevy", "assets"]
 categories = ["game-development", "filesystem"]
 repository = "https://github.com/taurr/bevy-embasset"
 homepage = "https://github.com/taurr/bevy-embasset"
-
+exclude = [
+    ".github"
+]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
