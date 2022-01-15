@@ -142,7 +142,7 @@ impl EmbassetIo {
 
     /// Create a new instance of the custom [`AssetServer`](bevy::asset::AssetServer).
     #[cfg(not(feature = "use-default-assetio"))]
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         EmbassetIo {
             handlers: Default::default(),
             embedded_resources: Default::default(),

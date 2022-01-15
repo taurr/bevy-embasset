@@ -16,7 +16,8 @@ As icing on the cake, `bevy-embasset` allows to register multiple other
 specific configurable strings. This can be used to have some assets load from e.g. a web-service,
 while others are loaded from disk or embedded in the binary. It can also be used to e.g. build
 1 or more sub-crates each using [`EmbassetIo`](EmbassetIo) and holding a set of assets - thereby
-saving compile-time as the assets don't have to be compiled every time.
+saving compile-time as the assets don't have to be compiled every time (An example of this, can be found in the
+game [`bevoids`](https://github.com/taurr/bevoids)).
 
 # Usage
 
