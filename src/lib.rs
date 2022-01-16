@@ -101,6 +101,7 @@ impl AssetIoAlternative {
     ///
     /// If `bevy_embasset` is compiled with the `use-default-assetio` feature, fallback will attempt
     /// to find a file first and if that fails too, try to use an embedded resource.
+    #[must_use]
     pub fn fallback_on_err(mut self) -> Self {
         self.fallback_on_err = true;
         self
