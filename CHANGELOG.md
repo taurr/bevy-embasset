@@ -7,18 +7,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Added
+
+## [0.1.2] - 2022-01-16
+### Changed
 - `AssetIoAlternative::fallback_on_err` is now a `#[must_use]`.
 - CI: Now running `cargo check` etc. across Linux, Window and Mac on Github.
 - CI: Checking the build automatically, once a week if nothing happens.
 - CI: Auto release on crates.io when releasing on Github
 
-### Changed
-### Removed
-
 ## [0.1.1] - 2022-01-15
 Bugfixes/changes found in usage
-- Removed dev-dependency on `bevy`
+
+### Removed
+- dev-dependency on `bevy`
+
+### Changed
 - Embasset::new is new public.
     
     Enables the possibility to create Asset crates seperately from the game.
@@ -28,6 +31,7 @@ Bugfixes/changes found in usage
 ## [0.1.0] - 2022-01-15
 Initial release of `bevy-embasset`
 
-[Unreleased]: https://github.com/taurr/bevy-embasset/compare/0.1.1...HEAD
+[Unreleased]: https://github.com/taurr/bevy-embasset/compare/0.1.2...HEAD
+[0.1.2]: https://github.com/taurr/bevy-embasset/releases/tag/0.1.2
 [0.1.1]: https://github.com/taurr/bevy-embasset/releases/tag/0.1.1
 [0.1.0]: https://github.com/taurr/bevy-embasset/releases/tag/0.1.0
