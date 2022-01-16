@@ -24,18 +24,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        #os: [windows-latest, ubuntu-latest, macos-latest]
-        toolchain: [stable]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        toolchain: [stable, nightly]
         cargo-cmd:
           - check --all-features
           - fmt --all -- --check
           - clippy --all-targets --all-features -- -D warnings
-        #exclude:
-        #  - os: macos-latest
-        #    toolchain: nightly
-        #  - os: windows-latest
-        #    toolchain: nightly
+        exclude:
+          - os: macos-latest
+            toolchain: nightly
+          - os: windows-latest
+            toolchain: nightly
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -52,6 +51,7 @@ jobs:
       #  if: runner.os == 'linux'
       - uses: Swatinem/rust-cache@v1
       - run: cargo ${{ matrix['cargo-cmd'] }}
+
   test:
     needs: check
     strategy:
