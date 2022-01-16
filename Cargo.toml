@@ -4,7 +4,7 @@ members = ["assets_example", "assets_manual_example"]
 
 [package]
 name = "bevy-embasset"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Johnny T. Vestergaard <jtv@jrtv.dk>"]
 edition = "2021"
 description = "A Bevy plugin to embed assets in your game, or load assets from other sources!"
