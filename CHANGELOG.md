@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- `AssetIoAlternative::fallback_on_err` is now a `#[must_use]`.
+- CI: Now running `cargo check` etc. across Linux, Window and Mac on Github.
+- CI: Checking the build automatically, once a week if nothing happens.
+
 ### Changed
 ### Removed
 
