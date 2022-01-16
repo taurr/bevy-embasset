@@ -84,3 +84,21 @@ jobs:
       #  if: runner.os == 'linux'
       - uses: Swatinem/rust-cache@v1
       - run: cargo ${{ matrix['cargo-cmd'] }}
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: Release
+    name: Release
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: nash-ws/cargo-release-action@main
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          major-label: major
+          minor-label: minor
+          patch-label: patch
+          cargo-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
