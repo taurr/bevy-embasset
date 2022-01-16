@@ -13,7 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AssetIoAlternative::fallback_on_err` is now a `#[must_use]`.
 - CI: Now running `cargo check` etc. across Linux, Window and Mac on Github.
 - CI: Checking the build automatically, once a week if nothing happens.
-- CI: Auto release on crates.io when releasing on Github
 
 ## [0.1.1] - 2022-01-15
 Bugfixes/changes found in usage
