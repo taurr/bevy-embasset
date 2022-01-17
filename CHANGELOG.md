@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `embasset_assets!` macro for defining:
+    - an enum for identifying assets. The defined enum can be iterated, an lots more.
+    - a struct implementing `AssetIo`, that'll contain the embedded assets. Needs to be added as a handler to a `EmbassetIo`.
+### Removed
+- feature `use-default-assetio` has been removed in favor of separate construction functions on `EmbassetIo`.
+
+
 ## [0.1.2] - 2022-01-16
 ### Changed
 - `AssetIoAlternative::fallback_on_err` is now a `#[must_use]`.
@@ -27,8 +35,10 @@ Bugfixes/changes found in usage
     
     Example can be found in the game [Bevoids](https://github.com/taurr/bevoids)
 
+
 ## [0.1.0] - 2022-01-15
 Initial release of `bevy-embasset`
+
 
 [Unreleased]: https://github.com/taurr/bevy-embasset/compare/0.1.2...HEAD
 [0.1.2]: https://github.com/taurr/bevy-embasset/releases/tag/0.1.2

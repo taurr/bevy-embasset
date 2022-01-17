@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 bevy = { version = "0.6", default-features = false }
 bevy-embasset = { path = "../" }
+
+paste = "1.0"
+strum = { version = "0.23", features = ["derive"] }

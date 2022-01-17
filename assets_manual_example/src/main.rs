@@ -1,6 +1,16 @@
-use bevy::{asset::AssetIo, prelude::*};
+use bevy::prelude::*;
 use bevy_embasset::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+
+embasset_assets!(
+    pub enum GameAssets {
+        #[doc = "Dummy documentation"]
+        Icon = ".keepme"
+    },
+    pub struct GameAssetsIo {
+        root = "../assets/"
+    }
+);
 
 fn main() {
     let mut app = App::new();
@@ -15,40 +25,7 @@ fn main() {
         // If Bevasset has been compiled with the "use-default-assetio" feature, Bevasset will
         // attempt to load all assets through Bevy's default AssetIo before reverting to the
         // embedded resources. Otherwise we just use the embedded resources.
-        io.add_handler(AssetIoAlternative::new("dummy://", DummyAssetIo).fallback_on_err());
+        io.add_handler(GameAssetsIo::new().into());
     })
     .run();
-}
-
-struct DummyAssetIo;
-
-impl AssetIo for DummyAssetIo {
-    fn load_path<'a>(
-        &'a self,
-        path: &'a std::path::Path,
-    ) -> bevy::asset::BoxedFuture<'a, Result<Vec<u8>, bevy::asset::AssetIoError>> {
-        Box::pin(async move { Err(bevy::asset::AssetIoError::NotFound(PathBuf::from(path))) })
-    }
-
-    fn read_directory(
-        &self,
-        path: &std::path::Path,
-    ) -> Result<Box<dyn Iterator<Item = std::path::PathBuf>>, bevy::asset::AssetIoError> {
-        Err(bevy::asset::AssetIoError::NotFound(PathBuf::from(path)))
-    }
-
-    fn is_directory(&self, _path: &std::path::Path) -> bool {
-        false
-    }
-
-    fn watch_path_for_changes(
-        &self,
-        _path: &std::path::Path,
-    ) -> Result<(), bevy::asset::AssetIoError> {
-        Ok(())
-    }
-
-    fn watch_for_changes(&self) -> Result<(), bevy::asset::AssetIoError> {
-        Ok(())
-    }
 }

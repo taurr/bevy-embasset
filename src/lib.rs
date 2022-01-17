@@ -30,6 +30,158 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Generates an enum for asset identification, as well as a struct implementing [`AssetIo`](bevy::assets::AssetIo).
+///
+/// # Example:
+///
+/// ```rust
+/// embasset_assets!(
+///     pub enum GameAssets {
+///         #[doc = "Example doc"]
+///         Icon = "icon.png"
+///     },
+///     pub struct GameAssetsIo {
+///         prepend = "TA://",
+///         root = "../test_assets/"
+///     }
+/// );
+/// ```
+#[macro_export]
+macro_rules! embasset_assets {
+    ($enum_vis:vis enum $AssetEnum:ident {
+        $($(#[$metadata:meta])* $variant:ident=$asset:literal),*
+    },
+    $io_vis:vis struct $AssetIo:ident {
+        root=$root:literal
+    }) => {
+        paste::paste!{
+            /// Asset identifiers.
+            ///
+            #[doc = "After [`" $AssetIo "`](" $AssetIo ") has been added to [`EmbassetPlugin`](" $crate "::EmbassetPlugin)"]
+            /// as a handler, these identifiers can be used when loading assets through [`AssetIo`](bevy::assets::AssetIo).
+            ///
+            /// # Example
+            ///
+            /// ```ignore
+            /// use bevy::prelude::*;
+            ///
+            /// fn system_needs_asset(asset_io: ResMut<AssetIo>) {
+            ///     let icon_asset = asset_io.load_path(GameAssets::Icon.path()).unwrap();
+            /// }
+            /// ```
+            #[derive(Debug, Copy, Clone, Hash, PartialEq, Ord, Eq, PartialOrd, strum::Display, strum::EnumIter, strum::EnumMessage, strum::EnumCount, strum::FromRepr)]
+            $enum_vis enum $AssetEnum {
+                $(
+                    #[allow(missing_docs)]
+                    $(#[$metadata])*
+                    #[strum(message = $asset)]
+                    $variant,
+                )*
+            }
+
+            impl $AssetEnum {
+                /// Creates a new [`Iterator`](std::iter::Iterator) over all the defined assets.
+                pub fn iter() -> [<$AssetEnum Iter>] {
+                    <$AssetEnum as strum::IntoEnumIterator>::iter()
+                }
+
+                /// Gets the path to use with [`EmbassetPlugin`]($crate::EmbassetPlugin)"] to
+                /// load the asset.
+                pub fn path(&self) -> std::path::PathBuf {
+                    std::path::PathBuf::from(format!("{}{}", $AssetEnum::prepend(), self.relative_path()))
+                }
+
+                /// Gets the relative path of the asset.
+                pub fn relative_path(&self) -> &'static str {
+                    strum::EnumMessage::get_message(self).unwrap()
+                }
+
+                /// Gets the prepended 'protocol' part, needed for the [`EmbassetPlugin`]($crate::EmbassetPlugin)"]
+                /// routing.
+                pub const fn prepend() -> &'static str {
+                    concat!(stringify!($AssetEnum), "://")
+                }
+            }
+
+            /// [`AssetIo`](bevy::assets::AssetIo) capable of loading assets as defined by
+            #[doc = "[`" $AssetEnum "`](" $AssetEnum ")."]
+            ///
+            /// Must be added to [`EmbassetPlugin`]($crate::EmbassetPlugin)"] as a handler
+            /// to work.
+            ///
+            /// # Example
+            ///
+            /// ```ignore
+            /// use bevy::prelude::*;
+            /// use $crate::EmbassetPlugin;
+            ///
+            /// fn main() {
+            ///     let mut app = App::new();
+            ///     app.add_plugins_with(DefaultPlugins, |group| {
+            ///         group.add_before::<AssetPlugin, _>(EmbassetPlugin::new(|io| {
+            ///             io.add_handler(GameAssetsIo::new().into());
+            ///         }))
+            ///     });
+            ///     ...
+            /// }
+            /// ```
+            $io_vis struct $AssetIo($crate::EmbassetIo);
+
+            impl $AssetIo {
+                #[doc = "Creates a new instance of " $AssetIo]
+                pub fn new() -> Self {
+                    let mut io = $crate::EmbassetIo::new();
+                    $(io.add_embedded_asset(std::path::Path::new($asset), include_bytes!(concat!($root, $asset)));)*
+                    Self(io)
+                }
+            }
+
+            impl Default for $AssetIo {
+                fn default() -> Self {
+                    Self::new()
+                }
+            }
+
+            impl From<$AssetIo> for $crate::AssetIoAlternative {
+                fn from(assetio:$AssetIo) -> Self {
+                    $crate::AssetIoAlternative::new($AssetEnum::prepend(), assetio, false)
+                }
+            }
+
+            impl bevy::asset::AssetIo for $AssetIo {
+                fn load_path<'a>(
+                    &'a self,
+                    path: &'a std::path::Path,
+                ) -> bevy::asset::BoxedFuture<'a, Result<Vec<u8>, bevy::asset::AssetIoError>> {
+                    self.0.load_path(path)
+                }
+
+                fn read_directory(
+                    &self,
+                    path: &std::path::Path,
+                ) -> Result<Box<dyn Iterator<Item = std::path::PathBuf>>, bevy::asset::AssetIoError> {
+                    self.0.read_directory(path)
+                }
+
+                fn is_directory(&self, path: &std::path::Path) -> bool {
+                    self.0.is_directory(path)
+                }
+
+                fn watch_path_for_changes(
+                    &self,
+                    path: &std::path::Path,
+                ) -> Result<(), bevy::asset::AssetIoError> {
+                    self.0.watch_path_for_changes(path)
+                }
+
+                fn watch_for_changes(&self) -> Result<(), bevy::asset::AssetIoError> {
+                    self.0.watch_for_changes()
+                }
+            }
+        }
+    };
+}
+
 /// Trait for easy replacement of the default [`AssetServer`](bevy::asset::AssetServer).
 ///
 /// # Example
@@ -88,23 +240,12 @@ impl AssetIoAlternative {
     /// - **asset_io**
     ///
     ///     [`AssetServer`](bevy::asset::AssetServer) for loading assets.
-    pub fn new<T: AssetIo>(path_start: &str, asset_io: T) -> Self {
+    pub fn new<T: AssetIo>(path_start: &str, asset_io: T, fallback_on_err: bool) -> Self {
         AssetIoAlternative {
             path_start: SmolStr::new(path_start),
-            fallback_on_err: false,
+            fallback_on_err,
             asset_io: Box::new(asset_io),
         }
-    }
-
-    /// If loading an asset with this alternate [`AssetIo`](bevy::asset::AssetIo) fails, fallback
-    /// to the default - either file or embedded resources, but withouth the `path_start` part of the path.
-    ///
-    /// If `bevy_embasset` is compiled with the `use-default-assetio` feature, fallback will attempt
-    /// to find a file first and if that fails too, try to use an embedded resource.
-    #[must_use]
-    pub fn fallback_on_err(mut self) -> Self {
-        self.fallback_on_err = true;
-        self
     }
 }
 
@@ -113,13 +254,11 @@ impl AssetIoAlternative {
 #[derive(DebugCustom)]
 #[debug(fmt = "EmbassetIo {{ handlers={:?} }}", handlers)]
 pub struct EmbassetIo {
-    #[cfg(feature = "use-default-assetio")]
-    default_io: Box<dyn AssetIo>,
+    default_io: Option<Box<dyn AssetIo>>,
     handlers: Vec<AssetIoAlternative>,
     embedded_resources: HashMap<&'static Path, &'static [u8]>,
 }
 
-#[cfg(not(feature = "use-default-assetio"))]
 impl Default for EmbassetIo {
     fn default() -> Self {
         Self::new()
@@ -127,24 +266,23 @@ impl Default for EmbassetIo {
 }
 
 impl EmbassetIo {
-    /// Create a new instance of the custom [`AssetServer`](bevy::asset::AssetServer).
-    ///
-    /// # Requires
-    ///
-    /// Feature: `use-default-assetio`
-    #[cfg(feature = "use-default-assetio")]
-    pub(crate) fn with_default_assetio(default_io: Box<dyn AssetIo>) -> Self {
+    /// Create a new instance of the custom [`AssetServer`](bevy::asset::AssetServer) that will
+    /// only serve embedded resources
+    #[allow(unused)]
+    pub fn with_default_assetio(default_io: Box<dyn AssetIo>) -> Self {
         EmbassetIo {
-            default_io,
+            default_io: Some(default_io),
             handlers: Default::default(),
             embedded_resources: Default::default(),
         }
     }
 
-    /// Create a new instance of the custom [`AssetServer`](bevy::asset::AssetServer).
-    #[cfg(not(feature = "use-default-assetio"))]
+    /// Create a new instance of the custom [`AssetServer`](bevy::asset::AssetServer) that will
+    /// only serve embedded resources, or through added alternative handlers.
+    #[allow(unused)]
     pub fn new() -> Self {
         EmbassetIo {
+            default_io: None,
             handlers: Default::default(),
             embedded_resources: Default::default(),
         }
@@ -209,7 +347,6 @@ async fn load_path_via_assetio<'a>(
     }
 }
 
-#[cfg(feature = "use-default-assetio")]
 async fn load_path<'a>(path: &'a Path, bevasset: &'a EmbassetIo) -> Result<Vec<u8>, AssetIoError> {
     if let Some(config) = bevasset
         .handlers
@@ -219,17 +356,36 @@ async fn load_path<'a>(path: &'a Path, bevasset: &'a EmbassetIo) -> Result<Vec<u
         load_path_via_assetio(path, config, bevasset).await
     } else {
         trace!(?path, "load asset via default AssetIo");
-        match bevasset.default_io.load_path(path).await {
-            r @ Ok(_) => {
-                trace!(?path, "loaded");
-                r
-            }
-            Err(err) => {
-                info!(
-                    ?err,
-                    ?path,
-                    "failed loading asset using default AssetIo, fallback to embedded resource"
-                );
+        match &bevasset.default_io {
+            Some(default_io) => match default_io.load_path(path).await {
+                r @ Ok(_) => {
+                    trace!(?path, "loaded");
+                    r
+                }
+                Err(err) => {
+                    info!(
+                        ?err,
+                        ?path,
+                        "failed loading asset using default AssetIo, fallback to embedded resource"
+                    );
+                    match bevasset
+                        .embedded_resources
+                        .get(path)
+                        .map(|b| b.to_vec())
+                        .ok_or_else(|| bevy::asset::AssetIoError::NotFound(path.to_path_buf()))
+                    {
+                        r @ Ok(_) => {
+                            trace!(?path, "loaded");
+                            r
+                        }
+                        Err(err) => {
+                            warn!(?err, ?path, "failed loading asset");
+                            Err(err)
+                        }
+                    }
+                }
+            },
+            None => {
                 match bevasset
                     .embedded_resources
                     .get(path)
@@ -245,34 +401,6 @@ async fn load_path<'a>(path: &'a Path, bevasset: &'a EmbassetIo) -> Result<Vec<u
                         Err(err)
                     }
                 }
-            }
-        }
-    }
-}
-
-#[cfg(not(feature = "use-default-assetio"))]
-async fn load_path<'a>(path: &'a Path, bevasset: &'a EmbassetIo) -> Result<Vec<u8>, AssetIoError> {
-    if let Some(config) = bevasset
-        .handlers
-        .iter()
-        .find(|h| path.starts_with(h.path_start.as_str()))
-    {
-        load_path_via_assetio(path, config, bevasset).await
-    } else {
-        trace!(?path, "load asset as embedded resource");
-        match bevasset
-            .embedded_resources
-            .get(path)
-            .map(|b| b.to_vec())
-            .ok_or_else(|| bevy::asset::AssetIoError::NotFound(path.to_path_buf()))
-        {
-            r @ Ok(_) => {
-                trace!(?path, "loaded");
-                r
-            }
-            Err(err) => {
-                warn!(?err, ?path, "failed loading asset");
-                Err(err)
             }
         }
     }
@@ -300,7 +428,6 @@ fn read_embedded_directory(
     }
 }
 
-#[cfg(feature = "use-default-assetio")]
 impl AssetIo for EmbassetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(load_path(path, self))
@@ -325,33 +452,52 @@ impl AssetIo for EmbassetIo {
             trace!(?path, path_start=?config.path_start, "read directory via handler");
             config.asset_io.read_directory(path)
         } else {
-            trace!(?path, "read directory via default AssetIo");
-            match self.default_io.read_directory(path) {
-                r @ Ok(_) => r,
-                Err(err) => {
-                    info!(
-                        ?err,
-                        ?path,
-                        "failed read directory via default AssetIo, fallback to embedded resource"
-                    );
-                    read_embedded_directory(self, path)
+            match &self.default_io {
+                Some(default_io) => {
+                    trace!(?path, "read directory via default AssetIo");
+                    match default_io.read_directory(path) {
+                        r @ Ok(_) => r,
+                        Err(err) => {
+                            info!(
+                                ?err,
+                                ?path,
+                                "failed read directory via default AssetIo, fallback to embedded resource"
+                            );
+                            read_embedded_directory(self, path)
+                        }
+                    }
+                }
+                None => read_embedded_directory(self, path),
+            }
+        }
+    }
+
+    fn is_directory(&self, path: &Path) -> bool {
+        let is_directory = if let Some(config) = self
+            .handlers
+            .iter()
+            .find(|h| path.starts_with(h.path_start.as_str()))
+        {
+            config.asset_io.is_directory(path)
+        } else {
+            match &self.default_io {
+                Some(default_io) => default_io.is_directory(path),
+                None => {
+                    let is_directory = if let Some(config) = self
+                        .handlers
+                        .iter()
+                        .find(|h| path.starts_with(h.path_start.as_str()))
+                    {
+                        config.asset_io.is_directory(path)
+                    } else {
+                        let as_folder = path.join("");
+                        self.embedded_resources.keys().any(|loaded_path| {
+                            loaded_path.starts_with(&as_folder) && loaded_path != &path
+                        })
+                    };
+                    is_directory
                 }
             }
-        }
-    }
-
-    fn is_directory(&self, path: &Path) -> bool {
-        let is_directory = if let Some(config) = self
-            .handlers
-            .iter()
-            .find(|h| path.starts_with(h.path_start.as_str()))
-        {
-            config.asset_io.is_directory(path)
-        } else {
-            // here there's no chance of doing a fallback.
-            // if default_io is enabled, it effectively dictates the result when not using a
-            // matched path_start
-            self.default_io.is_directory(path)
         };
         is_directory
     }
@@ -364,85 +510,28 @@ impl AssetIo for EmbassetIo {
         {
             config.asset_io.watch_path_for_changes(path)
         } else {
-            match self.default_io.watch_path_for_changes(path) {
-                r @ Ok(_) => r,
-                Err(_) => Ok(()),
+            match &self.default_io {
+                Some(default_io) => match default_io.watch_path_for_changes(path) {
+                    r @ Ok(_) => r,
+                    Err(_) => Ok(()),
+                },
+                None => Ok(()),
             }
         }
     }
 
     fn watch_for_changes(&self) -> Result<(), AssetIoError> {
-        match self.default_io.watch_for_changes() {
-            r @ Ok(_) => r,
-            Err(_) => Ok(()),
+        match &self.default_io {
+            Some(default_io) => match default_io.watch_for_changes() {
+                r @ Ok(_) => r,
+                Err(_) => Ok(()),
+            },
+            None => Ok(()),
         }
-    }
-}
-
-#[cfg(not(feature = "use-default-assetio"))]
-impl AssetIo for EmbassetIo {
-    fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
-        Box::pin(load_path(path, self))
-    }
-
-    fn read_directory(
-        &self,
-        path: &Path,
-    ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
-        if let Some(config) = self
-            .handlers
-            .iter()
-            .find(|h| path.starts_with(h.path_start.as_str()))
-        {
-            // first remove the path_start part of the path
-            let path = path.display().to_string();
-            let path = path
-                .strip_prefix(config.path_start.as_str())
-                .expect("path does not start with the defined path_start");
-            let path = Path::new(path);
-            // pass call to handler
-            trace!(?path, path_start=?config.path_start, "read directory via handler");
-            config.asset_io.read_directory(path)
-        } else {
-            read_embedded_directory(self, path)
-        }
-    }
-
-    fn is_directory(&self, path: &Path) -> bool {
-        let is_directory = if let Some(config) = self
-            .handlers
-            .iter()
-            .find(|h| path.starts_with(h.path_start.as_str()))
-        {
-            config.asset_io.is_directory(path)
-        } else {
-            let as_folder = path.join("");
-            self.embedded_resources
-                .keys()
-                .any(|loaded_path| loaded_path.starts_with(&as_folder) && loaded_path != &path)
-        };
-        is_directory
-    }
-
-    fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
-        if let Some(config) = self
-            .handlers
-            .iter()
-            .find(|h| path.starts_with(h.path_start.as_str()))
-        {
-            config.asset_io.watch_path_for_changes(path)
-        } else {
-            Ok(())
-        }
-    }
-
-    fn watch_for_changes(&self) -> Result<(), AssetIoError> {
-        Ok(())
     }
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "use-default-assetio"))]
 mod tests {
     use bevy::asset::AssetIo;
     use std::path::Path;
