@@ -48,17 +48,17 @@ use std::{
 #[macro_export]
 macro_rules! embasset_assets {
     (
-        $($enum_docs:meta)*
+        $(#[$enum_docs:meta])*
         $enum_vis:vis enum $AssetEnum:ident {
             $($(#[$metadata:meta])* $variant:ident=$asset:literal),*
         },
-        $($io_docs:meta)*
+        $(#[$io_docs:meta])*
         $io_vis:vis struct $AssetIo:ident {
             root=$root:literal
         }
     ) => {
         paste::paste!{
-            $($enum_docs)*
+            $(#[$enum_docs])*
             ///
             /// # Usage
             #[doc = "After [`" $AssetIo "`](" $AssetIo ") has been added to [`EmbassetPlugin`](" $crate "::EmbassetPlugin)"]
@@ -104,7 +104,7 @@ macro_rules! embasset_assets {
                 }
             }
 
-            $($io_docs)*
+            $(#[$io_docs])*
             ///
             /// [`AssetIo`](bevy::assets::AssetIo) capable of loading assets as defined by
             #[doc = "[`" $AssetEnum "`](" $AssetEnum ")."]
