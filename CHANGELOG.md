@@ -8,13 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.2.0] - 2022-01-17
 ### Added
 - `embasset_assets!` macro for defining:
     - an enum for identifying assets. The defined enum can be iterated, an lots more.
     - a struct implementing `AssetIo`, that'll contain the embedded assets. Needs to be added as a handler to a `EmbassetIo`.
 ### Removed
 - feature `use-default-assetio` has been removed in favor of separate construction functions on `EmbassetIo`.
-
+### Changed
+- documentation updated to reflect the use of asset crates
 
 ## [0.1.2] - 2022-01-16
 ### Changed
@@ -24,10 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.1] - 2022-01-15
 Bugfixes/changes found in usage
-
 ### Removed
 - dev-dependency on `bevy`
-
 ### Changed
 - Embasset::new is new public.
     
@@ -40,7 +41,8 @@ Bugfixes/changes found in usage
 Initial release of `bevy-embasset`
 
 
-[Unreleased]: https://github.com/taurr/bevy-embasset/compare/0.1.2...HEAD
+[Unreleased]: https://github.com/taurr/bevy-embasset/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/taurr/bevy-embasset/releases/tag/0.2.0
 [0.1.2]: https://github.com/taurr/bevy-embasset/releases/tag/0.1.2
 [0.1.1]: https://github.com/taurr/bevy-embasset/releases/tag/0.1.1
 [0.1.0]: https://github.com/taurr/bevy-embasset/releases/tag/0.1.0
