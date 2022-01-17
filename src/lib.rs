@@ -41,26 +41,28 @@ use std::{
 ///         Icon = "icon.png"
 ///     },
 ///     pub struct GameAssetsIo {
-///         prepend = "TA://",
 ///         root = "../test_assets/"
 ///     }
 /// );
 /// ```
 #[macro_export]
 macro_rules! embasset_assets {
-    ($enum_vis:vis enum $AssetEnum:ident {
-        $($(#[$metadata:meta])* $variant:ident=$asset:literal),*
-    },
-    $io_vis:vis struct $AssetIo:ident {
-        root=$root:literal
-    }) => {
+    (
+        $($enum_docs:meta)*
+        $enum_vis:vis enum $AssetEnum:ident {
+            $($(#[$metadata:meta])* $variant:ident=$asset:literal),*
+        },
+        $($io_docs:meta)*
+        $io_vis:vis struct $AssetIo:ident {
+            root=$root:literal
+        }
+    ) => {
         paste::paste!{
-            /// Asset identifiers.
+            $($enum_docs)*
             ///
+            /// # Usage
             #[doc = "After [`" $AssetIo "`](" $AssetIo ") has been added to [`EmbassetPlugin`](" $crate "::EmbassetPlugin)"]
             /// as a handler, these identifiers can be used when loading assets through [`AssetIo`](bevy::assets::AssetIo).
-            ///
-            /// # Example
             ///
             /// ```ignore
             /// use bevy::prelude::*;
@@ -102,13 +104,15 @@ macro_rules! embasset_assets {
                 }
             }
 
+            $($io_docs)*
+            ///
             /// [`AssetIo`](bevy::assets::AssetIo) capable of loading assets as defined by
             #[doc = "[`" $AssetEnum "`](" $AssetEnum ")."]
             ///
             /// Must be added to [`EmbassetPlugin`]($crate::EmbassetPlugin)"] as a handler
             /// to work.
             ///
-            /// # Example
+            /// # Usage
             ///
             /// ```ignore
             /// use bevy::prelude::*;
