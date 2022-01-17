@@ -69,7 +69,8 @@ macro_rules! embasset_assets {
             ///
             /// fn some_asset_loading_system(asset_server: &AssetServer) {
             ///   let icon : Handle<Image> = asset_server.load(GameAssets::Icon.path());
-            /// }            /// ```
+            /// }
+            /// ```
             #[derive(Debug, Copy, Clone, Hash, PartialEq, Ord, Eq, PartialOrd, strum::Display, strum::EnumIter, strum::EnumMessage, strum::EnumCount, strum::FromRepr)]
             $enum_vis enum $AssetEnum {
                 $(
