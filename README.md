@@ -53,6 +53,19 @@ fn main() {
 Note, in the above example, `GameAssets` and `GameAssetsIo` (defined by the macro) can be moved to a
 separate crate - saving compile time.
 
+The defined `GameAssets` implements several useful standard traits: `Eq`, `Ord`, `Hash`, `Copy`.
+It can be iterated over by invoking `GameAssets::iter()`, and the number of assets is available in 
+`GameAssets::COUNT`.
+
+The path needed to load an asset through the added `EmbassetPlugin` is retrieved using e.g. 
+`GameAssets::Icon.path()`:
+
+```rust
+fn some_asset_loading_system(asset_server: &AssetServer) {
+  let icon : Handle<Image> = asset_server.load(GameAssets::Icon.path());
+}
+```
+
 ### Using `build.rs`, no identifying enum
 
 ```rust
