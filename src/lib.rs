@@ -30,12 +30,50 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Generates an enum for easy identification of assets - though **only usable with the standard bevy AssetIo**.
+///
+/// Use the `path()` method for getting the path to use with the AssetServer.
+#[macro_export]
+macro_rules! asset_ids {
+    (
+        $(#[$enum_docs:meta])*
+        $enum_vis:vis enum $AssetEnum:ident {
+            $($(#[$metadata:meta])* $variant:ident=$asset:literal),*
+        }
+    ) => {
+        paste::paste!{
+            $(#[$enum_docs])*
+            #[derive(Debug, Copy, Clone, Hash, PartialEq, Ord, Eq, PartialOrd, strum::Display, strum::EnumIter, strum::EnumMessage, strum::EnumCount, strum::FromRepr)]
+            $enum_vis enum $AssetEnum {
+                $(
+                    #[allow(missing_docs)]
+                    $(#[$metadata])*
+                    #[strum(message = $asset)]
+                    $variant,
+                )*
+            }
+
+            impl $AssetEnum {
+                /// Creates a new [`Iterator`](std::iter::Iterator) over all the defined assets.
+                pub fn iter() -> [<$AssetEnum Iter>] {
+                    <$AssetEnum as strum::IntoEnumIterator>::iter()
+                }
+
+                /// Gets the relative path of the asset.
+                pub fn path(&self) -> &'static str {
+                    strum::EnumMessage::get_message(self).unwrap()
+                }
+            }
+        }
+    };
+}
+
 /// Generates an enum for asset identification, as well as a struct implementing [`AssetIo`](bevy::assets::AssetIo).
 ///
 /// # Example:
 ///
 /// ```rust
-/// embasset_assets!(
+/// assets!(
 ///     pub enum GameAssets {
 ///         #[doc = "Example doc"]
 ///         Icon = "icon.png"
@@ -46,7 +84,7 @@ use std::{
 /// );
 /// ```
 #[macro_export]
-macro_rules! embasset_assets {
+macro_rules! assets {
     (
         $(#[$enum_docs:meta])*
         $enum_vis:vis enum $AssetEnum:ident {

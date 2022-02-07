@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_embasset::*;
 use std::path::Path;
 
-embasset_assets!(
+assets!(
     pub enum GameAssets {
         #[doc = "Dummy documentation"]
         Icon = ".keepme"

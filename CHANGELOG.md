@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2022-02-07
+### Added
+- `embasset_asset_ids` macro. Generating asset identification enum for use with the standard bevy `AssetIo`.
+### Changed
+- `embasset_assets` macro has been renamed to `assets`
 
 ## [0.2.0] - 2022-01-17
 ### Added
