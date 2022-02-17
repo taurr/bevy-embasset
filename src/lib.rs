@@ -14,6 +14,8 @@
 mod plugin;
 pub use plugin::EmbassetPlugin;
 
+pub use strum::{EnumCount, IntoEnumIterator};
+
 #[cfg(feature = "build")]
 mod build;
 #[cfg(feature = "build")]
@@ -22,13 +24,11 @@ pub use build::*;
 use bevy::{
     asset::{AssetIo, AssetIoError, BoxedFuture},
     prelude::*,
+    utils::HashMap,
 };
 use derive_more::DebugCustom;
 use smol_str::SmolStr;
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 /// Generates an enum for easy identification of assets - though **only usable with the standard bevy AssetIo**.
 ///
@@ -38,12 +38,26 @@ macro_rules! asset_ids {
     (
         $(#[$enum_docs:meta])*
         $enum_vis:vis enum $AssetEnum:ident {
-            $($(#[$metadata:meta])* $variant:ident=$asset:literal),*
+            $($(#[$metadata:meta])* $variant:ident=$asset:literal,)*
         }
     ) => {
         paste::paste!{
             $(#[$enum_docs])*
-            #[derive(Debug, Copy, Clone, Hash, PartialEq, Ord, Eq, PartialOrd, strum::Display, strum::EnumIter, strum::EnumMessage, strum::EnumCount, strum::FromRepr)]
+            #[derive(
+                Debug,
+                Copy,
+                Clone,
+                Hash,
+                PartialEq,
+                Ord,
+                Eq,
+                PartialOrd,
+                strum::Display,
+                strum::EnumIter,
+                strum::EnumMessage,
+                strum::EnumCount,
+                strum::FromRepr,
+            )]
             $enum_vis enum $AssetEnum {
                 $(
                     #[allow(missing_docs)]
@@ -51,6 +65,14 @@ macro_rules! asset_ids {
                     #[strum(message = $asset)]
                     $variant,
                 )*
+            }
+
+            impl<'a> From<$AssetEnum> for bevy::asset::AssetPath<'a> {
+                fn from(ae: $AssetEnum) -> bevy::asset::AssetPath<'a> {
+                    bevy::asset::AssetPath::new(
+                        ae.path(),
+                        None)
+                }
             }
 
             impl $AssetEnum {
@@ -88,7 +110,7 @@ macro_rules! assets {
     (
         $(#[$enum_docs:meta])*
         $enum_vis:vis enum $AssetEnum:ident {
-            $($(#[$metadata:meta])* $variant:ident=$asset:literal),*
+            $($(#[$metadata:meta])* $variant:ident=$asset:literal,)*
         },
         $(#[$io_docs:meta])*
         $io_vis:vis struct $AssetIo:ident {
@@ -109,7 +131,21 @@ macro_rules! assets {
             ///   let icon : Handle<Image> = asset_server.load(GameAssets::Icon.path());
             /// }
             /// ```
-            #[derive(Debug, Copy, Clone, Hash, PartialEq, Ord, Eq, PartialOrd, strum::Display, strum::EnumIter, strum::EnumMessage, strum::EnumCount, strum::FromRepr)]
+            #[derive(
+                Debug,
+                Copy,
+                Clone,
+                Hash,
+                PartialEq,
+                Ord,
+                Eq,
+                PartialOrd,
+                strum::Display,
+                strum::EnumIter,
+                strum::EnumMessage,
+                strum::EnumCount,
+                strum::FromRepr,
+            )]
             $enum_vis enum $AssetEnum {
                 $(
                     #[allow(missing_docs)]
@@ -117,6 +153,14 @@ macro_rules! assets {
                     #[strum(message = $asset)]
                     $variant,
                 )*
+            }
+
+            impl<'a> From<$AssetEnum> for bevy::asset::AssetPath<'a> {
+                fn from(ae: $AssetEnum) -> bevy::asset::AssetPath<'a> {
+                    bevy::asset::AssetPath::new(
+                        ae.path(),
+                        None)
+                }
             }
 
             impl $AssetEnum {

@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2022-02-17
+### Added
+- Generated asset enums now implement `From<AssetEnum> for AssetPath`. This 
+makes it possible to use the asset enum directly with `AssetServer.load(impl Into<AssetPath>)`.
+
 ## [0.3.0] - 2022-02-07
 ### Added
 - `embasset_asset_ids` macro. Generating asset identification enum for use with the standard bevy `AssetIo`.
@@ -46,7 +51,9 @@ Bugfixes/changes found in usage
 Initial release of `bevy-embasset`
 
 
-[Unreleased]: https://github.com/taurr/bevy-embasset/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/taurr/bevy-embasset/compare/0.4.1...HEAD
+[0.4.1]: https://github.com/taurr/bevy-embasset/releases/tag/0.4.0
+[0.3.0]: https://github.com/taurr/bevy-embasset/releases/tag/0.3.0
 [0.2.0]: https://github.com/taurr/bevy-embasset/releases/tag/0.2.0
 [0.1.2]: https://github.com/taurr/bevy-embasset/releases/tag/0.1.2
 [0.1.1]: https://github.com/taurr/bevy-embasset/releases/tag/0.1.1

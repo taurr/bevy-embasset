@@ -5,7 +5,7 @@ use std::path::Path;
 assets!(
     pub enum GameAssets {
         #[doc = "Dummy documentation"]
-        Icon = ".keepme"
+        Icon = ".keepme",
     },
     pub struct GameAssetsIo {
         root = "../assets/"
@@ -28,4 +28,29 @@ fn main() {
         io.add_handler(GameAssetsIo::new().into());
     })
     .run();
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy::asset::AssetPath;
+    use bevy_embasset::EnumCount;
+
+    use super::*;
+
+    #[test]
+    fn feature() {
+        assert_eq!(1, GameAssets::COUNT);
+    }
+
+    #[test]
+    fn game_assets_io_is_asset_io_alternative() {
+        fn assert<T: Into<AssetIoAlternative>>() {}
+        assert::<GameAssetsIo>();
+    }
+
+    #[test]
+    fn game_assets_is_asset_path() {
+        fn assert<'a, T: 'a + Into<AssetPath<'a>>>() {}
+        assert::<GameAssets>();
+    }
 }
