@@ -9,5 +9,5 @@ edition = "2021"
 bevy-embasset = { path = "../", features = ["build"] }
 
 [dependencies]
-bevy = { version = "0.6", default-features = false }
+bevy = { version = "0.7", default-features = false }
 bevy-embasset = { path = "../" }
